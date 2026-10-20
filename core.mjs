@@ -45,12 +45,15 @@ export class DraftQueue {
   create(input, source = null) {
     this.prune();
     requireValue(this.items.size < this.limit, 'Queue is full. Remove old drafts first.');
-    requireValue(input.kind === 'post' || input.kind === 'reply', 'Unsupported draft type.');
+    requireValue(['post', 'reply', 'media'].includes(input.kind), 'Unsupported draft type.');
     if (input.kind === 'reply') requireValue(source && /^t[134]_[a-z0-9]+$/.test(source.name), 'Choose a discussion or incoming message loaded by this app.');
+    if (input.kind === 'media') requireValue(source && source.pageUrl && ['photo', 'video'].includes(source.type), 'Choose a Pexels result loaded by this app.');
+    if (input.kind === 'media') requireValue(!String(input.body ?? '').trim(), 'Media link posts cannot include a text body.');
     const d = {
-      id: randomUUID(), kind: input.kind, subreddit: input.kind === 'post' ? subreddit(input.subreddit) : (source.subreddit || ''),
-      target: source?.name || '', context: source ? text(`${source.postTitle ? `Post: ${source.postTitle}\n${source.postBody ? `Post body: ${source.postBody}\n` : ''}` : ''}${source.title || ''}\n${source.body || ''}`, 18000, 'Context', true) : text(input.context ?? '', 18000, 'Context', true),
+      id: randomUUID(), kind: input.kind, subreddit: input.kind !== 'reply' ? subreddit(input.subreddit) : (source.subreddit || ''),
+      target: source?.name || '', context: input.kind === 'media' ? text(input.context ?? '', 18000, 'Context', true) : source ? text(`${source.postTitle ? `Post: ${source.postTitle}\n${source.postBody ? `Post body: ${source.postBody}\n` : ''}` : ''}${source.title || ''}\n${source.body || ''}`, 18000, 'Context', true) : text(input.context ?? '', 18000, 'Context', true),
       title: text(input.title ?? '', 300, 'Title', true), body: text(input.body ?? '', 10000, 'Body', true),
+      media: input.kind === 'media' ? { type: source.type, pageUrl: source.pageUrl, previewUrl: source.previewUrl, author: source.author, authorUrl: source.authorUrl, description: source.description } : null,
       sourceLabel: source?.title || source?.subject || source?.name || '', sourceUrl: source?.permalink || '',
       created: this.now(), status: 'draft', resultUrl: '', message: ''
     };
@@ -58,15 +61,18 @@ export class DraftQueue {
   }
   edit(id, input) {
     const d = this.get(id); requireValue(d.status === 'draft', 'Only unsent drafts can be edited.', 409);
-    d.title = text(input.title ?? '', 300, 'Title', d.kind !== 'post');
-    d.body = text(input.body, 10000, 'Body');
+    const title = text(input.title ?? '', 300, 'Title', d.kind === 'reply');
+    const body = text(input.body ?? '', 10000, 'Body', d.kind === 'media');
+    if (d.kind === 'media') requireValue(!body, 'Media link posts cannot include a text body.');
+    d.title = title; d.body = body;
     return d;
   }
   remove(id) { const d = this.get(id); requireValue(d.status !== 'sending', 'Sending is in progress.', 409); this.items.delete(id); }
-  payload(d) { return { kind: d.kind, subreddit: d.subreddit, target: d.target, title: d.title, body: d.body }; }
+  payload(d) { return { kind: d.kind, subreddit: d.subreddit, target: d.target, title: d.title, body: d.body, media: d.media }; }
   preview(id) {
     const d = this.get(id); requireValue(d.status === 'draft', 'This draft cannot be sent again.', 409);
-    text(d.body, 10000, 'Body'); if (d.kind === 'post') text(d.title, 300, 'Title');
+    if (d.kind !== 'media') text(d.body, 10000, 'Body');
+    if (d.kind !== 'reply') text(d.title, 300, 'Title');
     for (const [token, item] of this.confirmations) if (item.id === id) this.confirmations.delete(token);
     const key = randomBytes(32).toString('hex');
     this.confirmations.set(key, { id, hash: digest(this.payload(d)), expires: this.now() + 120_000 });

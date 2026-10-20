@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { AppError, DraftQueue, digest, requireValue, rulesBlockAI, safeEqual, subreddit, text } from './core.mjs';
 import { RedditClient } from './reddit.mjs';
+import { searchPexels } from './pexels.mjs';
 
 const ROOT = new URL('./', import.meta.url);
 const AUTO_SCAN_MS = 20 * 60_000;
@@ -23,8 +24,9 @@ function redditUrl(value) {
   try { const u = new URL(value, 'https://www.reddit.com'); return ['www.reddit.com', 'reddit.com'].includes(u.hostname) && u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
 }
 
-export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = Date.now } = {}) {
+export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaFetch = fetch, now = Date.now } = {}) {
   const queue = new DraftQueue({ now }), communities = new Map(), sources = new Map();
+  const mediaResults = new Map();
   const auto = { enabled: true, model: 'gemma3:12b', running: false, lastScan: 0, drafted: 0, error: '' };
   const seenAuto = new Set();
   const session = randomBytes(32).toString('hex'), csrf = randomBytes(32).toString('hex'), launch = randomBytes(32).toString('hex');
@@ -33,6 +35,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
     queue.prune();
     const needed = new Set([...queue.items.values()].map(d => d.target).filter(Boolean));
     for (const [key, value] of sources) if (value.cached < now() - 1800_000 && !needed.has(key)) sources.delete(key);
+    for (const [key, value] of mediaResults) if (value.cached < now() - 1800_000) mediaResults.delete(key);
   }
   function addSource(item, incoming = false, postTitle = '', postBody = '') {
     if (unavailable(item) || !/^t[134]_[a-z0-9]+$/.test(item.name || '')) return;
@@ -83,6 +86,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
     }
   }
   async function generateDraft(d, model) {
+    requireValue(d.kind !== 'media', 'Write a title for this media link yourself.');
     const before = digest(queue.payload(d));
     requireValue(d.status === 'draft', 'This draft cannot be changed.');
     model = text(model, 100, 'Ollama model');
@@ -182,7 +186,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
   }
   const server = http.createServer(async (req, res) => {
     const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-RDA-Instance': '1',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://images.pexels.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
     const send = (status, value, extra = {}) => { res.writeHead(status, { ...headers, 'Content-Type': 'application/json; charset=utf-8', ...extra }); res.end(JSON.stringify(value)); };
     try {
       requireValue(req.headers.host === new URL(base).host, 'Invalid local host.', 403);
@@ -265,7 +269,16 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
           for (const item of rows) if (item.author?.toLowerCase() !== reddit.account.toLowerCase()) addSource(item, true);
           send(200, { items: rows.filter(row => row.author?.toLowerCase() !== reddit.account.toLowerCase()).map(row => sources.get(row.name)).filter(Boolean) }); return;
         }
-        if (url.pathname === '/api/draft/create') { send(200, queue.create(body, sources.get(body.target))); return; }
+        if (url.pathname === '/api/media/search') {
+          const found = await searchPexels({ key: body.key, query: body.query, type: body.type, fetchImpl: mediaFetch });
+          mediaResults.clear();
+          for (const item of found) mediaResults.set(item.id, { ...item, cached: now() });
+          send(200, { items: found }); return;
+        }
+        if (url.pathname === '/api/draft/create') {
+          const selected = body.kind === 'media' ? mediaResults.get(body.mediaId) : sources.get(body.target);
+          send(200, queue.create(body, selected)); return;
+        }
         if (url.pathname === '/api/draft/edit') { send(200, queue.edit(body.id, body)); return; }
         if (url.pathname === '/api/draft/remove') { queue.remove(body.id); send(200, {}); return; }
         if (url.pathname === '/api/draft/generate') {
@@ -278,7 +291,9 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
           const result = await queue.send(d.id, body.confirmation, async payload => {
             const data = payload.kind === 'post'
               ? await reddit.request('/api/submit', { kind: 'self', sr: payload.subreddit, title: payload.title, text: payload.body, resubmit: 'false', sendreplies: 'true' })
-              : await reddit.request('/api/comment', { thing_id: payload.target, text: payload.body });
+              : payload.kind === 'media'
+                ? await reddit.request('/api/submit', { kind: 'link', sr: payload.subreddit, title: payload.title, url: payload.media.pageUrl, resubmit: 'false', sendreplies: 'true' })
+                : await reddit.request('/api/comment', { thing_id: payload.target, text: payload.body });
             const returned = data.json?.data;
             requireValue(returned && (returned.name || returned.id || returned.things?.length || returned.url), 'Reddit returned no confirmed submission result.', 502);
             return { url: redditUrl(returned.url || returned.things?.[0]?.data?.permalink || '') };
