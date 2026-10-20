@@ -34,7 +34,7 @@
       </section>
       <section class="card" aria-labelledby="sourceTitle">
         <p class="eyebrow">03 · ОБСУЖДЕНИЯ</p><h2 id="sourceTitle">Найти повод ответить</h2>
-        <p class="hint">Недавние темы из разрешённых сообществ и сообщения, полученные аккаунтом.</p>
+        <p class="hint">После подключения Reddit автоподбор читает недавние темы разрешённых сообществ, готовит ответы и один медиа-пост с фото или видео из Wikimedia Commons. Вы проверяете каждый черновик перед отправкой.</p>
         <div class="row"><button id="discoverBtn" type="button">Найти обсуждения</button><button id="inboxBtn" class="quiet" type="button">Проверить входящие</button></div>
         <div class="row"><button id="autoToggleBtn" class="quiet" type="button">Приостановить автоподбор</button><button id="autoScanBtn" class="quiet" type="button">Проверить сейчас</button></div>
         <p id="autoStatus" class="hint" role="status">Автоподбор ждёт подключения Reddit и проверки правил сообществ.</p>
@@ -50,7 +50,7 @@
     </section>
     <section class="card" aria-labelledby="mediaTitle">
       <p class="eyebrow">05 · ФОТО И ВИДЕО</p><h2 id="mediaTitle">Найти медиа в Wikimedia Commons</h2>
-      <p class="hint">Поиск бесплатный, без аккаунта и ключа. Укажите тему здесь или используйте идею поста выше. Выбранное фото или видео станет черновиком поста со ссылкой на его страницу в Commons. Это ссылка, а не загрузка файла в Reddit; вид предпросмотра зависит от сообщества и Reddit.</p>
+      <p class="hint">Автоподбор сам составит запрос, выберет фото или видео и предложит конкретный файл после подключения Reddit. Здесь можно проверить ручной поиск уже сейчас — бесплатно, без аккаунта и ключа. Медиа-пост содержит ссылку на страницу файла в Commons, а не загрузку файла в Reddit.</p>
       <div class="row"><label class="grow">Тема поиска<input id="mediaQuery" maxlength="100" placeholder="Например, city at night"></label><label>Тип<select id="mediaType"><option value="photo">Фото</option><option value="video">Видео</option></select></label><button id="mediaSearchBtn" type="button">Найти</button></div>
       <div class="row"><label>Сообщество для нового поста<input id="mediaCommunity" placeholder="r/example" spellcheck="false"></label></div>
       <p class="hint">Проверяйте автора и условия лицензии у каждого выбранного файла. Для поиска не нужны платные сервисы.</p>

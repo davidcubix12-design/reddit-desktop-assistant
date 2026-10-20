@@ -85,3 +85,54 @@ test('pausing during generation hides and discards unfinished automatic drafts',
     assert.equal(app.queue.list().length, 0);
   } finally { release(); await new Promise(resolve => app.server.close(resolve)); }
 });
+
+test('automatic scan chooses topic, media type and Commons file without publishing', async () => {
+  const current = Date.now();
+  const post = { name: 't3_landscape1', id: 'landscape1', subreddit: 'naturetalk', author: 'member', title: 'Which riverside view surprised you most?',
+    selftext: '', created_utc: current / 1000 - 300, num_comments: 18, score: 25 };
+  const redditCalls = [];
+  const reddit = { account: 'Wolferineo', disconnect() { this.account = ''; }, async request(path) {
+    redditCalls.push(path);
+    if (path.includes('/about/rules')) return { rules: [{ short_name: 'Be kind', description: 'Be respectful.' }] };
+    if (path.includes('/new?')) return { data: { children: [{ data: post }] } };
+    if (path.includes('/comments/')) return [{}, { data: { children: [] } }];
+    throw new Error(`Unexpected Reddit request: ${path}`);
+  } };
+  const aiFetch = async (_url, options) => {
+    const prompt = JSON.parse(options.body).messages[0].content;
+    const answer = prompt.startsWith('Plan one original')
+      ? { title: 'Which river scene would you spend an afternoon exploring?', query: 'river landscape forest foliage', type: 'photo' }
+      : { id: 'commons:15' };
+    return { ok: true, async json() { return { message: { content: JSON.stringify(answer) } }; } };
+  };
+  const mediaSearches = [];
+  const mediaFetch = async url => {
+    const search = new URL(url).searchParams.get('gsrsearch'); mediaSearches.push(search);
+    return { ok: true, async json() { return { query: { pages: search.startsWith('river landscape forest filetype:') ? [{ pageid: 15, title: 'File:River landscape.jpg', imageinfo: [{
+    descriptionurl: 'https://commons.wikimedia.org/wiki/File:River_landscape.jpg',
+    thumburl: 'https://thumb.wikimedia.org/wikipedia/commons/thumb/1/1a/river.jpg',
+    extmetadata: { LicenseShortName: { value: 'CC BY 4.0' }, LicenseUrl: { value: 'https://creativecommons.org/licenses/by/4.0' }, Artist: { value: 'River Photographer' } }
+  }] }] : [] } }; } };
+  };
+  const app = createApp({ reddit, aiFetch, mediaFetch, now: () => current });
+  const { base, launchUrl, csrf, session } = await app.listen(0);
+  const headers = { Cookie: `rda_session=${session}`, Origin: base, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf };
+  const send = async (path, body) => {
+    const response = await fetch(`${base}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
+    return { status: response.status, data: await response.json() };
+  };
+  try {
+    await fetch(launchUrl, { redirect: 'manual' });
+    const reviewed = await send('/api/community/review', { name: 'naturetalk' });
+    await send('/api/community/allow', { name: 'naturetalk', hash: reviewed.data.hash, allowed: true });
+    for (let i = 0; i < 100 && !app.queue.list().some(d => d.kind === 'media'); i++) await new Promise(resolve => setTimeout(resolve, 10));
+    const draft = app.queue.list().find(d => d.kind === 'media');
+    assert.ok(draft); assert.equal(draft.auto, true);
+    assert.equal(draft.subreddit, 'naturetalk');
+    assert.equal(draft.media.type, 'photo');
+    assert.equal(draft.media.pageUrl, 'https://commons.wikimedia.org/wiki/File:River_landscape.jpg');
+    assert.equal(draft.status, 'draft');
+    assert.equal(mediaSearches.length, 2);
+    assert.ok(redditCalls.every(path => !path.includes('/api/submit')));
+  } finally { await new Promise(resolve => app.server.close(resolve)); }
+});

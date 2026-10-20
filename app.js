@@ -86,8 +86,8 @@ function renderAuto() {
   const description = !state.account ? 'Автоподбор ждёт одобрения API и подключения Reddit.'
     : !approved ? 'Сначала проверьте правила хотя бы одного сообщества и подтвердите, что ИИ разрешён.'
       : !auto.enabled ? 'Автоподбор приостановлен.'
-        : auto.running ? 'Ищет свежие обсуждения и готовит до двух ответов для проверки.'
-          : `Автоподбор включён. Готовых подсказок за этот запуск: ${auto.drafted || 0}. Проверка примерно раз в 20 минут.`;
+        : auto.running ? 'Ищет обсуждения и готовит ответы и медиа-пост для проверки.'
+          : `Автоподбор включён. Готовых черновиков за этот запуск: ${auto.drafted || 0}, из них медиа-постов: ${auto.mediaDrafted || 0}. Проверка примерно раз в 20 минут.`;
   const checked = auto.lastScan ? ` Последняя проверка: ${new Date(auto.lastScan).toLocaleTimeString()}.` : '';
   $('autoStatus').textContent = `${description}${checked}${auto.error ? ` ${auto.error}` : ''}`;
 }
@@ -135,7 +135,7 @@ function renderDrafts() {
   for (const draft of state.drafts) {
     const card = node('article', 'item draft');
     const head = node('div', 'itemHead');
-    head.append(node('h3', '', draft.kind === 'media' ? `${draft.media.type === 'photo' ? 'Фото' : 'Видео'} Commons · r/${draft.subreddit}` : draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `${draft.auto ? 'Автоподбор · ' : ''}Ответ: ${draft.sourceLabel || draft.target}`));
+    head.append(node('h3', '', draft.kind === 'media' ? `${draft.auto ? 'Автоподбор · ' : ''}${draft.media.type === 'photo' ? 'Фото' : 'Видео'} Commons · r/${draft.subreddit}` : draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `${draft.auto ? 'Автоподбор · ' : ''}Ответ: ${draft.sourceLabel || draft.target}`));
     head.append(node('span', 'status', { draft: 'Черновик', sending: 'Отправляется', sent: 'Отправлено', uncertain: 'Проверьте Reddit' }[draft.status] || draft.status));
     card.append(head);
     if (draft.kind === 'reply') {
@@ -203,7 +203,7 @@ $('inboxBtn').addEventListener('click', () => run(async () => { const data = awa
 $('autoToggleBtn').addEventListener('click', () => run(async () => {
   const enabled = !state.auto.enabled;
   state.auto = await api('/api/auto/config', { enabled, model: $('modelName').value });
-  notice(enabled ? 'Автоподбор включён. Ответы появятся в черновиках после проверки.' : 'Автоподбор приостановлен.');
+  notice(enabled ? 'Автоподбор включён. Ответы и медиа-посты появятся в черновиках после проверки.' : 'Автоподбор приостановлен.');
   renderAuto();
 }));
 $('autoScanBtn').addEventListener('click', () => run(async () => {
