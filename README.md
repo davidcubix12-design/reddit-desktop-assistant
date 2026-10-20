@@ -16,12 +16,11 @@ The rule detector cannot interpret every community policy or moderator decision.
 
 ## Run on Windows
 
-1. Install [Node.js 22 or newer](https://nodejs.org/en/download) if it is not already installed.
-2. Download this repository as a ZIP from GitHub, extract it, and double-click `start.cmd`. Alternatively run `node server.mjs --open` in this folder.
-3. Keep the console window open. If the browser does not open, copy the private local launch link printed in that window into a browser **on the same computer**. The link works once per launch.
-4. You can create and edit manual post drafts before connecting. Reddit reading and publishing require an approved API client.
+1. For the prepared Windows installation, double-click the **Reddit Desktop Assistant** shortcut. It starts the app without showing a command window and opens the browser interface.
+2. A fresh source download from GitHub does not contain the portable Node.js runtime. Install [Node.js 22 or newer](https://nodejs.org/en/download) once, then double-click `launch.vbs` in the extracted folder. `start.cmd` is available for troubleshooting and displays startup errors.
+3. You can create and edit manual post drafts before connecting. Reddit reading and publishing require an approved API client.
 
-The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment is required.
+The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment is required. The browser interface works only while its local server process is running. Closing that process clears the in-memory session and drafts.
 
 ### Optional local AI drafts
 

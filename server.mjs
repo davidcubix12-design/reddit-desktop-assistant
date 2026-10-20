@@ -66,7 +66,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, now = 
     catch (error) { if (error instanceof AppError) throw error; throw new AppError('Invalid JSON.'); }
   }
   const server = http.createServer(async (req, res) => {
-    const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer',
+    const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-RDA-Instance': '1',
       'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
     const send = (status, value, extra = {}) => { res.writeHead(status, { ...headers, 'Content-Type': 'application/json; charset=utf-8', ...extra }); res.end(JSON.stringify(value)); };
     try {
@@ -190,5 +190,17 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     if (process.argv.includes('--open') && process.platform === 'win32') execFile('rundll32.exe', ['url.dll,FileProtocolHandler', launchUrl], () => {});
     const stop = () => { app.reddit.disconnect(); app.queue.clear(); app.sources.clear(); app.server.close(); };
     process.once('SIGINT', stop); process.once('SIGTERM', stop);
-  } catch { console.error('Cannot start on the local port. Another copy may already be running.'); process.exitCode = 1; }
+  } catch (error) {
+    let reopened = false;
+    if (error.code === 'EADDRINUSE' && process.argv.includes('--open') && process.platform === 'win32') {
+      try {
+        const existing = await fetch('http://127.0.0.1:48765/', { signal: AbortSignal.timeout(1500) });
+        if (existing.headers.get('x-rda-instance') === '1') {
+          execFile('rundll32.exe', ['url.dll,FileProtocolHandler', 'http://127.0.0.1:48765/'], () => {});
+          reopened = true;
+        }
+      } catch {}
+    }
+    if (!reopened) { console.error('Cannot start on the local port. Another copy may already be running.'); process.exitCode = 1; }
+  }
 }
