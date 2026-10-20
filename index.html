@@ -49,13 +49,13 @@
       <div id="draftList" class="stack"></div>
     </section>
     <section class="card" aria-labelledby="mediaTitle">
-      <p class="eyebrow">05 · ФОТО И ВИДЕО</p><h2 id="mediaTitle">Найти медиа в Pexels</h2>
-      <p class="hint">Поиск работает до подключения Reddit. Укажите тему здесь или используйте идею поста выше. Выбранное фото или видео станет черновиком поста со ссылкой на страницу материала в Pexels. Это ссылка, а не загрузка файла в Reddit; вид предпросмотра зависит от сообщества и Reddit.</p>
-      <div class="row"><label>Ключ Pexels API<input id="pexelsKey" type="password" autocomplete="off" spellcheck="false" placeholder="Введите ключ для поиска"></label><label class="grow">Тема поиска<input id="mediaQuery" maxlength="100" placeholder="Например, city at night"></label><label>Тип<select id="mediaType"><option value="photo">Фото</option><option value="video">Видео</option></select></label><button id="mediaSearchBtn" type="button">Найти</button></div>
+      <p class="eyebrow">05 · ФОТО И ВИДЕО</p><h2 id="mediaTitle">Найти медиа в Wikimedia Commons</h2>
+      <p class="hint">Поиск бесплатный, без аккаунта и ключа. Укажите тему здесь или используйте идею поста выше. Выбранное фото или видео станет черновиком поста со ссылкой на его страницу в Commons. Это ссылка, а не загрузка файла в Reddit; вид предпросмотра зависит от сообщества и Reddit.</p>
+      <div class="row"><label class="grow">Тема поиска<input id="mediaQuery" maxlength="100" placeholder="Например, city at night"></label><label>Тип<select id="mediaType"><option value="photo">Фото</option><option value="video">Видео</option></select></label><button id="mediaSearchBtn" type="button">Найти</button></div>
       <div class="row"><label>Сообщество для нового поста<input id="mediaCommunity" placeholder="r/example" spellcheck="false"></label></div>
-      <p class="hint">Ключ используется только для запроса к Pexels и не записывается в файлы. <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer">Получить ключ Pexels</a> · <a href="https://www.pexels.com/license/" target="_blank" rel="noopener noreferrer">Условия использования</a></p>
+      <p class="hint">Проверяйте автора и условия лицензии у каждого выбранного файла. Для поиска не нужны платные сервисы.</p>
       <div id="mediaResults" class="mediaGrid"></div>
-      <p class="hint"><a href="https://www.pexels.com/" target="_blank" rel="noopener noreferrer">Фото и видео предоставлены Pexels</a></p>
+      <p class="hint"><a href="https://commons.wikimedia.org/" target="_blank" rel="noopener noreferrer">Источник: Wikimedia Commons</a></p>
     </section>
   </main>
   <dialog id="approvalDialog" aria-labelledby="approvalTitle">

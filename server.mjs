@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 import { execFile } from 'node:child_process';
 import { AppError, DraftQueue, digest, requireValue, rulesBlockAI, safeEqual, subreddit, text } from './core.mjs';
 import { RedditClient } from './reddit.mjs';
-import { searchPexels } from './pexels.mjs';
+import { searchCommons } from './commons.mjs';
 
 const ROOT = new URL('./', import.meta.url);
 const AUTO_SCAN_MS = 20 * 60_000;
@@ -186,7 +186,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaF
   }
   const server = http.createServer(async (req, res) => {
     const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-RDA-Instance': '1',
-      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://images.pexels.com; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://thumb.wikimedia.org https://upload.wikimedia.org; frame-ancestors 'none'; base-uri 'none'; form-action 'self'" };
     const send = (status, value, extra = {}) => { res.writeHead(status, { ...headers, 'Content-Type': 'application/json; charset=utf-8', ...extra }); res.end(JSON.stringify(value)); };
     try {
       requireValue(req.headers.host === new URL(base).host, 'Invalid local host.', 403);
@@ -270,7 +270,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaF
           send(200, { items: rows.filter(row => row.author?.toLowerCase() !== reddit.account.toLowerCase()).map(row => sources.get(row.name)).filter(Boolean) }); return;
         }
         if (url.pathname === '/api/media/search') {
-          const found = await searchPexels({ key: body.key, query: body.query, type: body.type, fetchImpl: mediaFetch });
+          const found = await searchCommons({ query: body.query, type: body.type, fetchImpl: mediaFetch });
           mediaResults.clear();
           for (const item of found) mediaResults.set(item.id, { ...item, cached: now() });
           send(200, { items: found }); return;

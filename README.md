@@ -11,7 +11,7 @@ This source repository is an early, testable prototype for a Reddit API access r
 - Shows recent topics and the account's inbox. Replies can only target an item previously loaded in the app. Received private messages can be answered; unsolicited messages and Reddit Chat are not supported.
 - After Reddit access is approved and you confirm the rules of at least one community, it can check those communities about every 20 minutes. It considers recent text posts and comments, then prepares at most two reply drafts per scan, with a maximum of six unfinished automatic drafts. You can pause the scan or trigger one immediately. Every draft still needs your review and separate approval before sending.
 - Can optionally suggest drafts using a local Ollama model. All drafts remain editable. No model is required to use the queue manually.
-- Searches Pexels for photos and videos using a key you enter locally, with a preview, creator, original page, and license link. You can choose one result to make a **link-post** draft pointing to its Pexels page. This is not a native Reddit image/video upload, and Reddit may display a link rather than embedded media. The key is not saved. Media links still require subreddit rule review and individual send approval.
+- Searches Wikimedia Commons for photos and videos without an account or API key, with a preview, creator, original file page, and license link. You can choose one result to make a **link-post** draft pointing to its Commons page. This is not a native Reddit image/video upload, and Reddit may display a link rather than embedded media. Media links still require subreddit rule review and individual send approval.
 - Uses a loopback server, local browser interface, one-use launch link, CSRF protection, and OAuth for an installed Reddit app. It asks for no Reddit password or client secret.
 
 The rule detector cannot interpret every community policy or moderator decision. The user must read the complete current rules and check whether AI-assisted text is permitted before contributing. Do not use the app for spam, automated voting, false personal claims, or prohibited content.
@@ -21,7 +21,7 @@ The rule detector cannot interpret every community policy or moderator decision.
 1. For the prepared Windows installation, double-click the **Reddit Desktop Assistant** shortcut. It starts the app without showing a command window and opens the browser interface.
 2. A fresh source download from GitHub does not contain the portable Node.js runtime. Install [Node.js 22 or newer](https://nodejs.org/en/download) once, then double-click `launch.vbs` in the extracted folder. `start.cmd` is available for troubleshooting and displays startup errors.
 3. You can create and edit manual post drafts before connecting. Reddit reading and publishing require an approved API client.
-4. To search Pexels, get a personal API key from [Pexels](https://www.pexels.com/api/), enter it in the media section, search, choose a result, and add a title. Review the [Pexels license](https://www.pexels.com/license/) and the chosen community's rules. Do not paste the key into this repository.
+4. To search media, enter a topic in the Wikimedia Commons section, choose photo or video, then select a result and add a title. Check that file's author and license as well as the chosen community's rules. No separate account or API key is needed for search.
 
 The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment is required. The browser interface works only while its local server process is running. The background scan also runs only while that process is running. Closing the process clears the in-memory session and drafts.
 
@@ -45,7 +45,7 @@ This prototype stores OAuth tokens, loaded Reddit content, community choices, an
 
 Private messages supported by the current code are classic Reddit inbox messages, not Reddit Chat. A lost response to a post or comment may mean Reddit accepted it; the app marks that item as uncertain and disables another send from it. Check Reddit before making any manual decision.
 
-Pexels search and preview work before Reddit approval, provided you have a Pexels API key. No live Pexels search or live Reddit media-link submission has been verified with the user's credentials. Native Reddit media uploads are not implemented. A link post cannot include a text body, so media drafts contain a title and the Pexels page URL only.
+Wikimedia Commons search and preview work before Reddit approval. Live photo and video search were checked without credentials. Live Reddit media-link submission has not been verified with the user's account. Native Reddit media uploads are not implemented. A link post cannot include a text body, so media drafts contain a title and the Commons file page URL only.
 
 ## Development
 

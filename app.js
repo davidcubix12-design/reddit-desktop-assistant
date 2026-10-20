@@ -46,8 +46,8 @@ function link(url, label) {
   if (!url || !/^https:\/\/(www\.)?reddit\.com\//i.test(url)) return null;
   const el = node('a', '', label); el.href = url; el.target = '_blank'; el.rel = 'noopener noreferrer'; return el;
 }
-function pexelsLink(url, label) {
-  if (!url || !/^https:\/\/www\.pexels\.com\//i.test(url)) return null;
+function mediaLink(url, label) {
+  if (!url || !/^https:\/\/(?:commons\.wikimedia\.org|(?:www\.)?creativecommons\.org)\//i.test(url)) return null;
   const el = node('a', '', label); el.href = url; el.target = '_blank'; el.rel = 'noopener noreferrer'; return el;
 }
 function mediaImage(url, alt) {
@@ -57,10 +57,11 @@ function renderMediaResults() {
   const host = $('mediaResults'); host.replaceChildren();
   for (const item of mediaResults) {
     const card = node('article', 'mediaCard');
-    card.append(mediaImage(item.previewUrl, item.description || `${item.type === 'photo' ? 'Фото' : 'Видео'} Pexels`));
+    card.append(mediaImage(item.previewUrl, item.description || `${item.type === 'photo' ? 'Фото' : 'Видео'} Wikimedia Commons`));
     card.append(node('p', '', `${item.type === 'photo' ? 'Фото' : 'Видео'} · ${item.description || 'Без описания'}`));
-    const author = pexelsLink(item.authorUrl, `Автор: ${item.author}`); if (author) card.append(author);
-    const source = pexelsLink(item.pageUrl, 'Открыть оригинал в Pexels'); if (source) card.append(source);
+    card.append(node('p', '', `Автор: ${item.author}`));
+    const source = mediaLink(item.pageUrl, 'Открыть файл и автора в Commons'); if (source) card.append(source);
+    const license = mediaLink(item.licenseUrl, `Лицензия: ${item.license}`); if (license) card.append(license);
     card.append(button('Выбрать для поста', () => run(async () => {
       await api('/api/draft/create', { kind: 'media', mediaId: item.id, subreddit: $('mediaCommunity').value, context: item.query, title: '', body: '' });
       notice('Черновик с медиа создан. Напишите заголовок и проверьте источник.'); await refresh(); $('draftList').scrollIntoView({ behavior: 'smooth' });
@@ -134,7 +135,7 @@ function renderDrafts() {
   for (const draft of state.drafts) {
     const card = node('article', 'item draft');
     const head = node('div', 'itemHead');
-    head.append(node('h3', '', draft.kind === 'media' ? `${draft.media.type === 'photo' ? 'Фото' : 'Видео'} Pexels · r/${draft.subreddit}` : draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `${draft.auto ? 'Автоподбор · ' : ''}Ответ: ${draft.sourceLabel || draft.target}`));
+    head.append(node('h3', '', draft.kind === 'media' ? `${draft.media.type === 'photo' ? 'Фото' : 'Видео'} Commons · r/${draft.subreddit}` : draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `${draft.auto ? 'Автоподбор · ' : ''}Ответ: ${draft.sourceLabel || draft.target}`));
     head.append(node('span', 'status', { draft: 'Черновик', sending: 'Отправляется', sent: 'Отправлено', uncertain: 'Проверьте Reddit' }[draft.status] || draft.status));
     card.append(head);
     if (draft.kind === 'reply') {
@@ -143,10 +144,10 @@ function renderDrafts() {
       if (source) card.append(source);
     }
     if (draft.kind === 'media') {
-      card.append(mediaImage(draft.media.previewUrl, draft.media.description || 'Предпросмотр Pexels'));
-      card.append(node('p', 'hint', `Автор: ${draft.media.author}. В Reddit отправится ссылка на страницу Pexels; текстовое описание к посту не добавляется.`));
-      const original = pexelsLink(draft.media.pageUrl, 'Открыть оригинал'); if (original) card.append(original);
-      const author = pexelsLink(draft.media.authorUrl, 'Страница автора'); if (author) card.append(author);
+      card.append(mediaImage(draft.media.previewUrl, draft.media.description || 'Предпросмотр Wikimedia Commons'));
+      card.append(node('p', 'hint', `Автор: ${draft.media.author}. Лицензия: ${draft.media.license}. В Reddit отправится ссылка на страницу Commons; текстовое описание к посту не добавляется.`));
+      const original = mediaLink(draft.media.pageUrl, 'Открыть файл и автора'); if (original) card.append(original);
+      const license = mediaLink(draft.media.licenseUrl, 'Условия лицензии'); if (license) card.append(license);
     }
     if (draft.message) card.append(node('p', '', draft.message));
     const result = link(draft.resultUrl, 'Открыть опубликованное'); if (result) card.append(result);
@@ -177,11 +178,11 @@ function renderDrafts() {
         dirtyDraft = false;
         const preview = await api('/api/preview', { id: draft.id });
         pendingApproval = { id: draft.id, confirmation: preview.confirmation };
-        $('approvalDestination').textContent = preview.draft.kind === 'media' ? `Пост со ссылкой на Pexels · r/${preview.draft.subreddit}` : preview.draft.kind === 'post' ? `Новый пост · r/${preview.draft.subreddit}` : `Ответ · ${preview.draft.target}`;
+        $('approvalDestination').textContent = preview.draft.kind === 'media' ? `Пост со ссылкой на Commons · r/${preview.draft.subreddit}` : preview.draft.kind === 'post' ? `Новый пост · r/${preview.draft.subreddit}` : `Ответ · ${preview.draft.target}`;
         $('approvalPostTitle').textContent = preview.draft.title;
-        $('approvalBody').textContent = preview.draft.kind === 'media' ? `В Reddit отправится ссылка: ${preview.draft.media.pageUrl}\nАвтор: ${preview.draft.media.author}` : preview.draft.body;
+        $('approvalBody').textContent = preview.draft.kind === 'media' ? `В Reddit отправится ссылка: ${preview.draft.media.pageUrl}\nАвтор: ${preview.draft.media.author}\nЛицензия: ${preview.draft.media.license}` : preview.draft.body;
         $('approvalMedia').replaceChildren();
-        if (preview.draft.media) $('approvalMedia').append(mediaImage(preview.draft.media.previewUrl, 'Выбранное медиа Pexels'));
+        if (preview.draft.media) $('approvalMedia').append(mediaImage(preview.draft.media.previewUrl, 'Выбранное медиа Wikimedia Commons'));
         $('approvalCheck').checked = false; $('sendApproval').disabled = true;
         $('approvalDialog').showModal();
       })));
@@ -219,8 +220,8 @@ $('newPostBtn').addEventListener('click', () => run(async () => {
 $('mediaSearchBtn').addEventListener('click', () => run(async () => {
   const query = $('mediaQuery').value.trim() || $('postTopic').value.trim();
   if (!query) throw new Error('Укажите тему поиска здесь или в поле идеи для поста.');
-  const result = await api('/api/media/search', { key: $('pexelsKey').value, query, type: $('mediaType').value });
-  mediaResults = result.items; renderMediaResults(); notice(`Найдено ${mediaResults.length} материалов Pexels. Выберите один для поста.`);
+  const result = await api('/api/media/search', { query, type: $('mediaType').value });
+  mediaResults = result.items; renderMediaResults(); notice(`Найдено ${mediaResults.length} материалов Wikimedia Commons. Выберите один для поста.`);
 }));
 $('approvalCheck').addEventListener('change', () => { $('sendApproval').disabled = !$('approvalCheck').checked || !pendingApproval || busy; });
 $('cancelApproval').addEventListener('click', () => { $('approvalDialog').close(); pendingApproval = null; });

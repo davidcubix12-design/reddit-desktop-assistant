@@ -47,13 +47,13 @@ export class DraftQueue {
     requireValue(this.items.size < this.limit, 'Queue is full. Remove old drafts first.');
     requireValue(['post', 'reply', 'media'].includes(input.kind), 'Unsupported draft type.');
     if (input.kind === 'reply') requireValue(source && /^t[134]_[a-z0-9]+$/.test(source.name), 'Choose a discussion or incoming message loaded by this app.');
-    if (input.kind === 'media') requireValue(source && source.pageUrl && ['photo', 'video'].includes(source.type), 'Choose a Pexels result loaded by this app.');
+    if (input.kind === 'media') requireValue(source && source.pageUrl && ['photo', 'video'].includes(source.type), 'Choose a media result loaded by this app.');
     if (input.kind === 'media') requireValue(!String(input.body ?? '').trim(), 'Media link posts cannot include a text body.');
     const d = {
       id: randomUUID(), kind: input.kind, subreddit: input.kind !== 'reply' ? subreddit(input.subreddit) : (source.subreddit || ''),
       target: source?.name || '', context: input.kind === 'media' ? text(input.context ?? '', 18000, 'Context', true) : source ? text(`${source.postTitle ? `Post: ${source.postTitle}\n${source.postBody ? `Post body: ${source.postBody}\n` : ''}` : ''}${source.title || ''}\n${source.body || ''}`, 18000, 'Context', true) : text(input.context ?? '', 18000, 'Context', true),
       title: text(input.title ?? '', 300, 'Title', true), body: text(input.body ?? '', 10000, 'Body', true),
-      media: input.kind === 'media' ? { type: source.type, pageUrl: source.pageUrl, previewUrl: source.previewUrl, author: source.author, authorUrl: source.authorUrl, description: source.description } : null,
+      media: input.kind === 'media' ? { type: source.type, pageUrl: source.pageUrl, previewUrl: source.previewUrl, author: source.author, authorUrl: source.authorUrl, license: source.license, licenseUrl: source.licenseUrl, description: source.description } : null,
       sourceLabel: source?.title || source?.subject || source?.name || '', sourceUrl: source?.permalink || '',
       created: this.now(), status: 'draft', resultUrl: '', message: ''
     };
