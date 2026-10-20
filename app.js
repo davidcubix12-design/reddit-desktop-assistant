@@ -112,7 +112,14 @@ function renderDrafts() {
       const save = () => api('/api/draft/edit', { id: draft.id, title: titleInput.value, body: bodyInput.value });
       row.append(button('Сохранить', () => run(async () => { await save(); notice('Черновик сохранён.'); await refresh(); }), 'quiet'));
       row.append(button('Предложить текст', () => run(async () => {
-        await save(); await api('/api/draft/generate', { id: draft.id, model: $('modelName').value });
+        const changed = titleInput.value !== draft.title || bodyInput.value !== draft.body;
+        if (changed) {
+          if (!bodyInput.value.trim() || (draft.kind === 'post' && !titleInput.value.trim())) {
+            throw new Error('Чтобы учесть ваши правки, заполните заголовок и текст или очистите оба поля.');
+          }
+          await save();
+        }
+        await api('/api/draft/generate', { id: draft.id, model: $('modelName').value });
         notice('Текст готов. Проверьте его перед отправкой.'); await refresh();
       }), 'quiet'));
       row.append(button('Проверить и отправить', () => run(async () => {
