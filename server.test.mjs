@@ -30,7 +30,7 @@ test('AI draft retries personal claims and never replaces a draft with them', as
   const answers = [
     { title: 'Small habits', body: "I'm interested in what worked for you. The prompt mentioned habits." },
     { title: 'Which small habit helped most?', body: 'What small change made a noticeable difference in your daily routine?' },
-    { title: 'Small habits', body: "I've tried several habits. What worked for you?" },
+    { title: 'Small habits', body: 'This thread discusses small habits. What worked for you?' },
     { title: 'Small habits', body: 'The prompt mentioned small habits. What worked for you?' }
   ];
   let calls = 0;
