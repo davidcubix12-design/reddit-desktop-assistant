@@ -9,6 +9,7 @@ This source repository is an early, testable prototype for a Reddit API access r
 - Keeps a review queue for posts and replies. Every send requires a current preview of the exact text and an explicit confirmation. Editing invalidates that preview. It will not automatically retry an uncertain submission.
 - Reads only up to five communities that the user chooses and reviews. If a community's rules change, publishing requires another review. A detected AI prohibition blocks publishing.
 - Shows recent topics and the account's inbox. Replies can only target an item previously loaded in the app. Received private messages can be answered; unsolicited messages and Reddit Chat are not supported.
+- After Reddit access is approved and you confirm the rules of at least one community, it can check those communities about every 20 minutes. It considers recent text posts and comments, then prepares at most two reply drafts per scan, with a maximum of six unfinished automatic drafts. You can pause the scan or trigger one immediately. Every draft still needs your review and separate approval before sending.
 - Can optionally suggest drafts using a local Ollama model. All drafts remain editable. No model is required to use the queue manually.
 - Uses a loopback server, local browser interface, one-use launch link, CSRF protection, and OAuth for an installed Reddit app. It asks for no Reddit password or client secret.
 
@@ -20,7 +21,7 @@ The rule detector cannot interpret every community policy or moderator decision.
 2. A fresh source download from GitHub does not contain the portable Node.js runtime. Install [Node.js 22 or newer](https://nodejs.org/en/download) once, then double-click `launch.vbs` in the extracted folder. `start.cmd` is available for troubleshooting and displays startup errors.
 3. You can create and edit manual post drafts before connecting. Reddit reading and publishing require an approved API client.
 
-The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment is required. The browser interface works only while its local server process is running. Closing that process clears the in-memory session and drafts.
+The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment is required. The browser interface works only while its local server process is running. The background scan also runs only while that process is running. Closing the process clears the in-memory session and drafts.
 
 ### Optional local AI drafts
 
@@ -38,7 +39,7 @@ The application uses the public repository link as its source-code link in the A
 
 ## Data and limitations
 
-This prototype stores OAuth tokens, loaded Reddit content, community choices, and drafts **in memory only**. Closing or restarting the app clears them. It does not run in the background when the window is closed, send phone notifications, monitor communities continuously, or provide a packaged `.exe`. Reddit content is sent to the local Ollama service only when you ask for a draft. Reddit receives the OAuth requests and content that you explicitly approve for submission. No telemetry is built in.
+This prototype stores OAuth tokens, loaded Reddit content, community choices, and drafts **in memory only**. Closing or restarting the server clears them. It does not send phone notifications or provide a packaged `.exe`. Once connected and enabled, its limited scan continues while the local server process is running, even if the browser tab is closed. It sends selected post or comment context to the local Ollama service when preparing an automatic draft or when you request one manually. It never trains the model on Reddit content. Reddit receives the OAuth requests and content that you explicitly approve for submission. No telemetry is built in.
 
 Private messages supported by the current code are classic Reddit inbox messages, not Reddit Chat. A lost response to a post or comment may mean Reddit accepted it; the app marks that item as uncertain and disables another send from it. Check Reddit before making any manual decision.
 

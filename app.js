@@ -12,9 +12,10 @@ const button = (label, action, className = '') => {
   el.addEventListener('click', action);
   return el;
 };
-let state = { account: '', drafts: [], communities: [], sources: [] };
+let state = { account: '', drafts: [], communities: [], sources: [], auto: { enabled: true, running: false, drafted: 0, error: '' } };
 let pendingApproval = null;
 let busy = false;
+let dirtyDraft = false;
 function notice(message, error = false) {
   const el = $('notice'); el.hidden = false; el.textContent = message; el.classList.toggle('error', error);
 }
@@ -35,6 +36,7 @@ async function run(task) {
   finally {
     busy = false;
     document.querySelectorAll('button').forEach(el => { el.disabled = false; });
+    renderAuto();
     $('sendApproval').disabled = !$('approvalCheck').checked || !pendingApproval;
   }
 }
@@ -49,7 +51,21 @@ function render() {
   $('connectionForm').hidden = Boolean(state.account);
   $('connectBtn').hidden = Boolean(state.account);
   $('approved').parentElement.hidden = Boolean(state.account);
-  renderCommunities(); renderSources(); renderDrafts();
+  renderCommunities(); renderSources(); renderAuto(); renderDrafts();
+}
+function renderAuto() {
+  const auto = state.auto || {};
+  const approved = state.communities.some(item => item.allowed && !item.blocked);
+  $('autoToggleBtn').textContent = auto.enabled ? 'Приостановить автоподбор' : 'Включить автоподбор';
+  $('autoToggleBtn').disabled = !state.account;
+  $('autoScanBtn').disabled = !auto.enabled || !state.account || !approved || auto.running;
+  const description = !state.account ? 'Автоподбор ждёт одобрения API и подключения Reddit.'
+    : !approved ? 'Сначала проверьте правила хотя бы одного сообщества и подтвердите, что ИИ разрешён.'
+      : !auto.enabled ? 'Автоподбор приостановлен.'
+        : auto.running ? 'Ищет свежие обсуждения и готовит до двух ответов для проверки.'
+          : `Автоподбор включён. Готовых подсказок за этот запуск: ${auto.drafted || 0}. Проверка примерно раз в 20 минут.`;
+  const checked = auto.lastScan ? ` Последняя проверка: ${new Date(auto.lastScan).toLocaleTimeString()}.` : '';
+  $('autoStatus').textContent = `${description}${checked}${auto.error ? ` ${auto.error}` : ''}`;
 }
 function renderCommunities() {
   const host = $('communityList'); host.replaceChildren();
@@ -77,7 +93,7 @@ function renderSources() {
   if (!state.sources.length) { host.append(node('p', 'hint', 'Обсуждения и входящие появятся здесь после подключения и загрузки.')); return; }
   for (const source of state.sources.slice().reverse().slice(0, 50)) {
     const card = node('div', 'item');
-    card.append(node('small', '', source.incoming ? 'Входящее сообщение или ответ' : `r/${source.subreddit} · ${source.comments} комментариев`));
+    card.append(node('small', '', `${source.incoming ? 'Входящее сообщение или ответ' : `r/${source.subreddit} · ${source.name.startsWith('t1_') ? 'комментарий' : `${source.comments} комментариев`}`} · u/${source.author || 'unknown'}`));
     card.append(node('h3', '', source.title || source.name));
     if (source.body) card.append(node('p', '', source.body.slice(0, 500)));
     const row = node('div', 'row');
@@ -95,22 +111,27 @@ function renderDrafts() {
   for (const draft of state.drafts) {
     const card = node('article', 'item draft');
     const head = node('div', 'itemHead');
-    head.append(node('h3', '', draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `Ответ: ${draft.sourceLabel || draft.target}`));
+    head.append(node('h3', '', draft.kind === 'post' ? `Пост в r/${draft.subreddit}` : `${draft.auto ? 'Автоподбор · ' : ''}Ответ: ${draft.sourceLabel || draft.target}`));
     head.append(node('span', 'status', { draft: 'Черновик', sending: 'Отправляется', sent: 'Отправлено', uncertain: 'Проверьте Reddit' }[draft.status] || draft.status));
     card.append(head);
+    if (draft.kind === 'reply') {
+      card.append(node('p', 'hint', `Контекст: ${draft.context.slice(0, 700)}`));
+      const source = link(draft.sourceUrl, 'Открыть исходное обсуждение на Reddit');
+      if (source) card.append(source);
+    }
     if (draft.message) card.append(node('p', '', draft.message));
     const result = link(draft.resultUrl, 'Открыть опубликованное'); if (result) card.append(result);
     if (draft.status === 'draft') {
       const titleLabel = node('label', '', 'Заголовок на английском');
-      const titleInput = node('input'); titleInput.value = draft.title; titleInput.maxLength = 300;
+      const titleInput = node('input'); titleInput.value = draft.title; titleInput.maxLength = 300; titleInput.addEventListener('input', () => { dirtyDraft = true; });
       if (draft.kind !== 'post') titleLabel.hidden = true;
       titleLabel.append(titleInput); card.append(titleLabel);
       const bodyLabel = node('label', '', 'Текст на английском');
-      const bodyInput = node('textarea'); bodyInput.value = draft.body; bodyInput.maxLength = 10000;
+      const bodyInput = node('textarea'); bodyInput.value = draft.body; bodyInput.maxLength = 10000; bodyInput.addEventListener('input', () => { dirtyDraft = true; });
       bodyLabel.append(bodyInput); card.append(bodyLabel);
       const row = node('div', 'row');
       const save = () => api('/api/draft/edit', { id: draft.id, title: titleInput.value, body: bodyInput.value });
-      row.append(button('Сохранить', () => run(async () => { await save(); notice('Черновик сохранён.'); await refresh(); }), 'quiet'));
+      row.append(button('Сохранить', () => run(async () => { await save(); dirtyDraft = false; notice('Черновик сохранён.'); await refresh(); }), 'quiet'));
       row.append(button('Предложить текст', () => run(async () => {
         const changed = titleInput.value !== draft.title || bodyInput.value !== draft.body;
         if (changed) {
@@ -120,10 +141,11 @@ function renderDrafts() {
           await save();
         }
         await api('/api/draft/generate', { id: draft.id, model: $('modelName').value });
-        notice('Текст готов. Проверьте его перед отправкой.'); await refresh();
+        dirtyDraft = false; notice('Текст готов. Проверьте его перед отправкой.'); await refresh();
       }), 'quiet'));
       row.append(button('Проверить и отправить', () => run(async () => {
         await save();
+        dirtyDraft = false;
         const preview = await api('/api/preview', { id: draft.id });
         pendingApproval = { id: draft.id, confirmation: preview.confirmation };
         $('approvalDestination').textContent = preview.draft.kind === 'post' ? `Новый пост · r/${preview.draft.subreddit}` : `Ответ · ${preview.draft.target}`;
@@ -146,6 +168,18 @@ $('disconnectBtn').addEventListener('click', () => run(async () => { await api('
 $('reviewBtn').addEventListener('click', () => run(async () => { await api('/api/community/review', { name: $('communityName').value }); await refresh(); }));
 $('discoverBtn').addEventListener('click', () => run(async () => { const data = await api('/api/discover', {}); notice(`Загружено ${data.items.length} недавних обсуждений.`); await refresh(); }));
 $('inboxBtn').addEventListener('click', () => run(async () => { const data = await api('/api/inbox', {}); notice(`Загружено ${data.items.length} входящих.`); await refresh(); }));
+$('autoToggleBtn').addEventListener('click', () => run(async () => {
+  const enabled = !state.auto.enabled;
+  state.auto = await api('/api/auto/config', { enabled, model: $('modelName').value });
+  notice(enabled ? 'Автоподбор включён. Ответы появятся в черновиках после проверки.' : 'Автоподбор приостановлен.');
+  renderAuto();
+}));
+$('autoScanBtn').addEventListener('click', () => run(async () => {
+  state.auto = await api('/api/auto/config', { enabled: true, model: $('modelName').value });
+  await api('/api/auto/scan', {});
+  notice('Проверка обсуждений запущена. Новые ответы появятся в черновиках.');
+  renderAuto();
+}));
 $('newPostBtn').addEventListener('click', () => run(async () => {
   const community = $('postCommunity').value;
   await api('/api/draft/create', { kind: 'post', subreddit: community, context: $('postTopic').value, title: '', body: '' });
@@ -161,3 +195,12 @@ $('sendApproval').addEventListener('click', () => run(async () => {
   finally { await refresh(); }
 }));
 refresh().catch(error => notice(error.message || 'Не удалось открыть приложение.', true));
+setInterval(async () => {
+  if (busy || $('approvalDialog').open || document.visibilityState === 'hidden') return;
+  try {
+    const fresh = await api('/api/state');
+    if ((fresh.auto?.drafted || 0) > (state.auto?.drafted || 0)) notice('Автоподбор подготовил новые ответы. Проверьте черновики.');
+    if (dirtyDraft) { state.auto = fresh.auto; renderAuto(); }
+    else { state = fresh; render(); }
+  } catch { /* The next explicit action will show a connection error. */ }
+}, 30_000);

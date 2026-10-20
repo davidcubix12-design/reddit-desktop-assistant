@@ -36,7 +36,7 @@ export class DraftQueue {
     this.now = now; this.limit = limit; this.items = new Map(); this.confirmations = new Map(); this.sent = new Set();
   }
   get(id) { const d = this.items.get(id); requireValue(d, 'Draft not found.', 404); return d; }
-  list() { this.prune(); return [...this.items.values()].map(({ approval, ...d }) => d).reverse(); }
+  list() { this.prune(); return [...this.items.values()].filter(d => !d.autoPending).map(({ approval, ...d }) => d).reverse(); }
   prune() {
     const expired = this.now() - 24 * 3600_000;
     for (const [id, draft] of this.items) if (draft.created < expired && draft.status !== 'sending') this.items.delete(id);
@@ -49,7 +49,7 @@ export class DraftQueue {
     if (input.kind === 'reply') requireValue(source && /^t[134]_[a-z0-9]+$/.test(source.name), 'Choose a discussion or incoming message loaded by this app.');
     const d = {
       id: randomUUID(), kind: input.kind, subreddit: input.kind === 'post' ? subreddit(input.subreddit) : (source.subreddit || ''),
-      target: source?.name || '', context: source ? text(`${source.title || ''}\n${source.body || ''}`, 18000, 'Context', true) : text(input.context ?? '', 18000, 'Context', true),
+      target: source?.name || '', context: source ? text(`${source.postTitle ? `Post: ${source.postTitle}\n${source.postBody ? `Post body: ${source.postBody}\n` : ''}` : ''}${source.title || ''}\n${source.body || ''}`, 18000, 'Context', true) : text(input.context ?? '', 18000, 'Context', true),
       title: text(input.title ?? '', 300, 'Title', true), body: text(input.body ?? '', 10000, 'Body', true),
       sourceLabel: source?.title || source?.subject || source?.name || '', sourceUrl: source?.permalink || '',
       created: this.now(), status: 'draft', resultUrl: '', message: ''
