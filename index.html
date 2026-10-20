@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <meta name="csrf-token" content="__CSRF__">
+  <title>Reddit Desktop Assistant</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div><p class="eyebrow">ЛОКАЛЬНЫЙ ПОМОЩНИК</p><h1>Reddit Desktop Assistant</h1><p class="muted">Черновики на английском. Каждая отправка — только после вашего просмотра.</p></div>
+    <div id="accountBadge" class="badge">Не подключено</div>
+  </header>
+  <main>
+    <div id="notice" role="status" aria-live="polite" hidden></div>
+    <section class="card" aria-labelledby="connectionTitle">
+      <div class="sectionHead"><div><p class="eyebrow">01 · ДОСТУП</p><h2 id="connectionTitle">Подключение Reddit</h2></div><button id="disconnectBtn" class="quiet" type="button" hidden>Отключить</button></div>
+      <p class="hint">Подключайте API только после одобрения Reddit. Пароль Reddit сюда вводить не нужно: вход откроется на сайте Reddit.</p>
+      <div id="connectionForm" class="row">
+        <label>Ваш Reddit username<input id="username" value="Wolferineo" autocomplete="off" spellcheck="false"></label>
+        <label>Client ID одобренного installed app<input id="clientId" autocomplete="off" spellcheck="false"></label>
+      </div>
+      <div class="row alignEnd"><label class="check"><input id="approved" type="checkbox"> Reddit одобрил доступ к API для этого приложения</label><button id="connectBtn" type="button">Подключить через Reddit</button></div>
+    </section>
+    <div class="columns">
+      <section class="card" aria-labelledby="communityTitle">
+        <p class="eyebrow">02 · СООБЩЕСТВА</p><h2 id="communityTitle">Проверка правил</h2>
+        <p class="hint">Укажите до пяти сообществ. Прочитайте правила каждого и подтвердите, что там разрешены тексты с помощью ИИ.</p>
+        <div class="row"><label class="grow">Название сообщества<input id="communityName" placeholder="r/example" spellcheck="false"></label><button id="reviewBtn" type="button">Показать правила</button></div>
+        <div id="communityList" class="stack"></div>
+      </section>
+      <section class="card" aria-labelledby="sourceTitle">
+        <p class="eyebrow">03 · ОБСУЖДЕНИЯ</p><h2 id="sourceTitle">Найти повод ответить</h2>
+        <p class="hint">Недавние темы из разрешённых сообществ и сообщения, полученные аккаунтом.</p>
+        <div class="row"><button id="discoverBtn" type="button">Найти обсуждения</button><button id="inboxBtn" class="quiet" type="button">Проверить входящие</button></div>
+        <div id="sourceList" class="stack"></div>
+      </section>
+    </div>
+    <section class="card" aria-labelledby="composeTitle">
+      <p class="eyebrow">04 · ЧЕРНОВИКИ</p><h2 id="composeTitle">Создать пост</h2>
+      <p class="hint">Для ответа выберите обсуждение или входящее сообщение выше. Текст можно написать самому или попросить локальную модель.</p>
+      <div class="row"><label>Сообщество<input id="postCommunity" placeholder="r/example" spellcheck="false"></label><label class="grow">Идея или тема<input id="postTopic" maxlength="18000" placeholder="Какая тема интересна людям?" ></label><button id="newPostBtn" type="button">Новый черновик</button></div>
+      <div class="row modelRow"><label>Локальная модель Ollama<input id="modelName" value="gemma3:4b" spellcheck="false"></label><span class="hint">Необязательно. Для генерации Ollama и выбранная модель должны быть установлены на этом ПК.</span></div>
+      <div id="draftList" class="stack"></div>
+    </section>
+  </main>
+  <dialog id="approvalDialog" aria-labelledby="approvalTitle">
+    <h2 id="approvalTitle">Проверить перед отправкой</h2>
+    <p id="approvalDestination" class="eyebrow"></p>
+    <h3 id="approvalPostTitle"></h3>
+    <pre id="approvalBody"></pre>
+    <p class="hint">После нажатия будет отправлен ровно этот текст. Если результат неизвестен, приложение не повторит отправку.</p>
+    <label class="check"><input id="approvalCheck" type="checkbox"> Я проверил текст и разрешаю отправку</label>
+    <div class="dialogActions"><button id="cancelApproval" class="quiet" type="button">Отмена</button><button id="sendApproval" type="button" disabled>Одобрить и отправить</button></div>
+  </dialog>
+</body>
+</html>
