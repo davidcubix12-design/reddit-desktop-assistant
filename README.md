@@ -24,7 +24,7 @@ The server listens only on `127.0.0.1:48765`. No npm install or cloud deployment
 
 ### Optional local AI drafts
 
-Install [Ollama](https://ollama.com/download), start it, and download a model (for example `ollama pull gemma3:4b`). Put the installed model name into the app. The app sends draft context and your current draft to the Ollama service at `127.0.0.1:11434`. It does **not** use your Codex subscription or OpenAI API credits. Whether the model runs comfortably depends on your PC's memory and hardware. You can always write drafts yourself.
+Install [Ollama](https://ollama.com/download), start it, and download a model. The prepared local installation uses `gemma3:12b`; a fresh source checkout needs that model downloaded separately. Put the installed model name into the app. The app sends draft context and your current draft to the Ollama service at `127.0.0.1:11434`. It does **not** use your Codex subscription or OpenAI API credits. Whether the model runs comfortably depends on your PC's memory and hardware. You can always write drafts yourself.
 
 ## Reddit API setup after approval
 
