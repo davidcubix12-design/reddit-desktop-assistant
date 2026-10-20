@@ -14,8 +14,12 @@
     <div><p class="eyebrow">ЛОКАЛЬНЫЙ ПОМОЩНИК</p><h1>Reddit Desktop Assistant</h1><p class="muted">Черновики на английском. Каждая отправка — только после вашего просмотра.</p></div>
     <div id="accountBadge" class="badge">Не подключено</div>
   </header>
-  <main>
-    <div id="notice" role="status" aria-live="polite" hidden></div>
+  <nav class="tabs" aria-label="Разделы приложения">
+    <button id="workTab" class="tab active" type="button" aria-current="page">Работа</button>
+    <button id="historyTab" class="tab" type="button">История</button>
+  </nav>
+  <div id="notice" role="status" aria-live="polite" hidden></div>
+  <main id="workView">
     <section class="card" aria-labelledby="connectionTitle">
       <div class="sectionHead"><div><p class="eyebrow">01 · ДОСТУП</p><h2 id="connectionTitle">Подключение Reddit</h2></div><button id="disconnectBtn" class="quiet" type="button" hidden>Отключить</button></div>
       <p class="hint">Подключайте API только после одобрения Reddit. Пароль Reddit сюда вводить не нужно: вход откроется на сайте Reddit.</p>
@@ -56,6 +60,14 @@
       <p class="hint">Проверяйте автора и условия лицензии у каждого выбранного файла. Для поиска не нужны платные сервисы.</p>
       <div id="mediaResults" class="mediaGrid"></div>
       <p class="hint"><a href="https://commons.wikimedia.org/" target="_blank" rel="noopener noreferrer">Источник: Wikimedia Commons</a></p>
+    </section>
+  </main>
+  <main id="historyView" hidden>
+    <section class="card" aria-labelledby="historyTitle">
+      <h2 id="historyTitle">История отправок</h2>
+      <p class="hint">Здесь сохраняются посты и ответы, отправленные через это приложение после появления истории. Публикации из других приложений здесь не отображаются.</p>
+      <div id="historyList" class="stack" aria-live="polite"></div>
+      <button id="historyMore" class="quiet" type="button" hidden>Показать ещё</button>
     </section>
   </main>
   <dialog id="approvalDialog" aria-labelledby="approvalTitle">

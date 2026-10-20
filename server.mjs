@@ -7,6 +7,7 @@ import { execFile } from 'node:child_process';
 import { AppError, DraftQueue, digest, requireValue, rulesBlockAI, safeEqual, subreddit, text } from './core.mjs';
 import { RedditClient } from './reddit.mjs';
 import { searchCommons } from './commons.mjs';
+import { HistoryStore } from './history.mjs';
 
 const ROOT = new URL('./', import.meta.url);
 const AUTO_SCAN_MS = 20 * 60_000;
@@ -24,7 +25,7 @@ function redditUrl(value) {
   try { const u = new URL(value, 'https://www.reddit.com'); return ['www.reddit.com', 'reddit.com'].includes(u.hostname) && u.protocol === 'https:' ? u.href : ''; } catch { return ''; }
 }
 
-export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaFetch = fetch, now = Date.now } = {}) {
+export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaFetch = fetch, now = Date.now, history = new HistoryStore({ now }) } = {}) {
   const queue = new DraftQueue({ now }), communities = new Map(), sources = new Map();
   const mediaResults = new Map();
   const auto = { enabled: true, model: 'gemma3:12b', running: false, lastScan: 0, drafted: 0, mediaDrafted: 0, error: '' };
@@ -275,6 +276,11 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaF
       if (req.method === 'GET' && url.pathname === '/api/state') {
         pruneSources(); send(200, { account: reddit.account, drafts: queue.list(), communities: [...communities.values()], sources: [...sources.values()], auto: { ...auto, nextScan: auto.lastScan ? auto.lastScan + AUTO_SCAN_MS : 0 } }); return;
       }
+      if (req.method === 'GET' && url.pathname === '/api/history') {
+        const offset = Number(url.searchParams.get('offset') || 0);
+        requireValue(Number.isSafeInteger(offset) && offset >= 0, 'Invalid history position.');
+        send(200, await history.list({ offset, limit: 50 })); return;
+      }
       requireValue(req.method === 'POST', 'Not found.', 404);
       requireValue(req.headers.origin === base && safeEqual(req.headers['x-csrf-token'], csrf), 'Invalid local request.', 403);
       requireValue((req.headers['content-type'] || '').startsWith('application/json'), 'JSON is required.', 415);
@@ -350,14 +356,22 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaF
           requireValue(body.approved === true, 'Explicit approval is required.');
           const d = queue.get(body.id); await validateDestination(d);
           const result = await queue.send(d.id, body.confirmation, async payload => {
-            const data = payload.kind === 'post'
-              ? await reddit.request('/api/submit', { kind: 'self', sr: payload.subreddit, title: payload.title, text: payload.body, resubmit: 'false', sendreplies: 'true' })
-              : payload.kind === 'media'
-                ? await reddit.request('/api/submit', { kind: 'link', sr: payload.subreddit, title: payload.title, url: payload.media.pageUrl, resubmit: 'false', sendreplies: 'true' })
-                : await reddit.request('/api/comment', { thing_id: payload.target, text: payload.body });
-            const returned = data.json?.data;
-            requireValue(returned && (returned.name || returned.id || returned.things?.length || returned.url), 'Reddit returned no confirmed submission result.', 502);
-            return { url: redditUrl(returned.url || returned.things?.[0]?.data?.permalink || '') };
+            const entry = await history.start(payload, reddit.account);
+            try {
+              const data = payload.kind === 'post'
+                ? await reddit.request('/api/submit', { kind: 'self', sr: payload.subreddit, title: payload.title, text: payload.body, resubmit: 'false', sendreplies: 'true' })
+                : payload.kind === 'media'
+                  ? await reddit.request('/api/submit', { kind: 'link', sr: payload.subreddit, title: payload.title, url: payload.media.pageUrl, resubmit: 'false', sendreplies: 'true' })
+                  : await reddit.request('/api/comment', { thing_id: payload.target, text: payload.body });
+              const returned = data.json?.data;
+              requireValue(returned && (returned.name || returned.id || returned.things?.length || returned.url), 'Reddit returned no confirmed submission result.', 502);
+              const url = redditUrl(returned.url || returned.things?.[0]?.data?.permalink || '');
+              await history.finish(entry.id, 'sent', url);
+              return { url };
+            } catch (error) {
+              await history.finish(entry.id, 'uncertain').catch(() => {});
+              throw error;
+            }
           }); send(200, result); return;
         }
         throw new AppError('Not found.', 404);
@@ -369,7 +383,7 @@ export function createApp({ reddit = new RedditClient(), aiFetch = fetch, mediaF
   });
   server.headersTimeout = 10000; server.requestTimeout = 150000;
   server.on('close', () => clearInterval(scanTimer));
-  return { server, queue, sources, communities, reddit,
+  return { server, queue, sources, communities, reddit, history,
     async listen(port = 48765) {
       await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
       base = `http://127.0.0.1:${server.address().port}`;

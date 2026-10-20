@@ -17,6 +17,8 @@ let pendingApproval = null;
 let busy = false;
 let dirtyDraft = false;
 let mediaResults = [];
+let historyItems = [];
+let historyTotal = 0;
 function notice(message, error = false) {
   const el = $('notice'); el.hidden = false; el.textContent = message; el.classList.toggle('error', error);
 }
@@ -52,6 +54,36 @@ function mediaLink(url, label) {
 }
 function mediaImage(url, alt) {
   const img = node('img'); img.src = url; img.alt = alt; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer'; return img;
+}
+async function loadHistory(reset = true) {
+  const offset = reset ? 0 : historyItems.length;
+  const page = await api(`/api/history?offset=${offset}`);
+  historyItems = reset ? page.items : [...historyItems, ...page.items];
+  historyTotal = page.total;
+  renderHistory();
+}
+function renderHistory() {
+  const host = $('historyList'); host.replaceChildren();
+  if (!historyItems.length) host.append(node('p', 'hint', 'Отправок через приложение пока нет. После вашего одобрения они появятся здесь.'));
+  for (const entry of historyItems) {
+    const card = node('article', 'item');
+    const head = node('div', 'itemHead');
+    const destination = entry.subreddit ? `r/${entry.subreddit}` : entry.target || 'Reddit';
+    head.append(node('h3', '', `${entry.kind === 'reply' ? 'Ответ' : entry.kind === 'media' ? 'Пост с фото или видео' : 'Пост'} · ${destination}`));
+    head.append(node('span', 'status', entry.status === 'sent' ? 'Отправлено' : 'Статус неизвестен'));
+    card.append(head);
+    card.append(node('div', 'historyMeta', `${new Date(entry.created).toLocaleString()} · u/${entry.account || 'unknown'}`));
+    if (entry.title) card.append(node('p', '', entry.title));
+    if (entry.body) card.append(node('p', 'historyBody', entry.body));
+    if (entry.media) {
+      card.append(node('p', 'historyMeta', `${entry.media.type === 'video' ? 'Видео' : 'Фото'} · ${entry.media.author || 'автор не указан'} · ${entry.media.license || 'лицензия не указана'}`));
+      const source = mediaLink(entry.media.pageUrl, 'Открыть медиа в Wikimedia Commons'); if (source) card.append(source);
+    }
+    const result = link(entry.resultUrl, 'Открыть на Reddit'); if (result) card.append(result);
+    if (entry.status !== 'sent') card.append(node('p', 'historyWarning', 'Reddit не подтвердил отправку или приложение было закрыто во время неё. Проверьте аккаунт вручную; приложение не отправит это повторно.'));
+    host.append(card);
+  }
+  $('historyMore').hidden = historyItems.length >= historyTotal;
 }
 function renderMediaResults() {
   const host = $('mediaResults'); host.replaceChildren();
@@ -196,6 +228,18 @@ $('connectBtn').addEventListener('click', () => run(async () => {
   const result = await api('/api/connect', { clientId: $('clientId').value, username: $('username').value, approved: $('approved').checked });
   location.assign(result.url);
 }));
+$('workTab').addEventListener('click', () => {
+  $('workView').hidden = false; $('historyView').hidden = true;
+  $('workTab').classList.add('active'); $('historyTab').classList.remove('active');
+  $('workTab').setAttribute('aria-current', 'page'); $('historyTab').removeAttribute('aria-current');
+});
+$('historyTab').addEventListener('click', () => run(async () => {
+  await loadHistory();
+  $('workView').hidden = true; $('historyView').hidden = false;
+  $('historyTab').classList.add('active'); $('workTab').classList.remove('active');
+  $('historyTab').setAttribute('aria-current', 'page'); $('workTab').removeAttribute('aria-current');
+}));
+$('historyMore').addEventListener('click', () => run(async () => { await loadHistory(false); }));
 $('disconnectBtn').addEventListener('click', () => run(async () => { await api('/api/disconnect', {}); notice('Отключено. Содержимое очереди удалено из памяти.'); await refresh(); }));
 $('reviewBtn').addEventListener('click', () => run(async () => { await api('/api/community/review', { name: $('communityName').value }); await refresh(); }));
 $('discoverBtn').addEventListener('click', () => run(async () => { const data = await api('/api/discover', {}); notice(`Загружено ${data.items.length} недавних обсуждений.`); await refresh(); }));
